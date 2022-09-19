@@ -99,7 +99,11 @@ class StreamLink extends ActiveRecord
     {
         static::deleteAll(['object_model' => $objectModel, 'object_id' => $objectId]);
         foreach (MarkdownHelper::grepLinks($markdown) as $href => $title) {
-            if (!$href || static::isUserLink($href)) {
+            if (
+                !$href
+                || static::isUserLink($href)
+                || strpos($href, 'mention:') === 0
+            ) {
                 continue;
             }
             $link = new static();
