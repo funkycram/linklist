@@ -35,9 +35,9 @@ humhub\modules\linklist\Assets::register($this);
                  class="panel panel-default panel-linklist-category">
                 <div class="panel-heading">
                     <div class="heading">
-                        <?= Button::info(Yii::t('LinklistModule.base', 'View posted links'))
-                            ->link($contentContainer->createUrl('/linklist/linklist/stream'))
-                            ->tooltip(Yii::t('LinklistModule.base', 'Links from the stream (posts or comments)')) ?>
+                        <strong><?= Button::asLink(Yii::t('LinklistModule.base', 'View posted links'))
+                                ->link($contentContainer->createUrl('/linklist/linklist/stream'))
+                                ->tooltip(Yii::t('LinklistModule.base', 'Links from the stream (posts or comments)')) ?></strong>
                     </div>
                 </div>
             </div>

@@ -3,9 +3,11 @@
 namespace humhub\modules\linklist\models;
 
 use humhub\components\ActiveRecord;
+use humhub\components\Request;
 use humhub\modules\comment\models\Comment;
 use humhub\modules\content\models\Content;
 use humhub\modules\linklist\helpers\MarkdownHelper;
+use humhub\modules\user\components\UrlRule;
 use Yii;
 use yii\db\ActiveQuery;
 
@@ -97,7 +99,7 @@ class StreamLink extends ActiveRecord
     {
         static::deleteAll(['object_model' => $objectModel, 'object_id' => $objectId]);
         foreach (MarkdownHelper::grepLinks($markdown) as $href => $title) {
-            if (!$href) {
+            if (!$href || static::isUserLink($href)) {
                 continue;
             }
             $link = new static();
@@ -108,5 +110,29 @@ class StreamLink extends ActiveRecord
             $link->title = $title ?: $href;
             $link->save();
         }
+    }
+
+    /**
+     * Return true if the link is about a user (e.g. the profile page of a user)
+     * @param $href
+     * @return bool
+     */
+    protected static function isUserLink($href)
+    {
+        $manager = Yii::$app->getUrlManager();
+        if (!$manager->enablePrettyUrl) {
+            return strpos($href, '/index.php?r=user%2F') === 0;
+        }
+        $request = new Request();
+        $request->setUrl($href);
+        foreach ($manager->rules as $rule) {
+            if (
+                $rule instanceof UrlRule
+                && $rule->parseRequest($manager, $request) !== false
+            ) {
+                return true;
+            }
+        }
+        return false;
     }
 }
