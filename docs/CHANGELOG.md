@@ -1,6 +1,10 @@
 Changelog
 =========
 
+0.8.0 (unreleased)
+----------------------
+- Enh #51: add "Posted links" section
+
 0.7.1 (April 26, 2022)
 ----------------------
 - Enh #4823: Remove CHTML/CActiveForm usages

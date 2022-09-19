@@ -2,18 +2,19 @@
 
 namespace humhub\modules\linklist;
 
-use Yii;
-
-use humhub\modules\linklist\models\Link;
-use humhub\modules\linklist\models\Category;
-use humhub\modules\space\models\Space;
-use humhub\modules\user\models\User;
+use humhub\modules\comment\models\Comment;
 use humhub\modules\content\components\ContentContainerActiveRecord;
 use humhub\modules\content\components\ContentContainerModule;
+use humhub\modules\linklist\models\Category;
+use humhub\modules\linklist\models\Link;
+use humhub\modules\linklist\models\StreamLink;
+use humhub\modules\post\models\Post;
+use humhub\modules\space\models\Space;
+use humhub\modules\user\models\User;
+use yii\db\StaleObjectException;
 
 class Module extends ContentContainerModule
 {
-
     /**
      * @inheritdoc
      */
@@ -41,7 +42,7 @@ class Module extends ContentContainerModule
         foreach (Category::find()->all() as $category) {
             $category->delete();
         }
-        
+
         parent::disable();
     }
 
@@ -53,6 +54,25 @@ class Module extends ContentContainerModule
         $container->setSetting('enableDeadLinkValidation', 0, 'linklist');
         $container->setSetting('enableWidget', 0, 'linklist');
         parent::enableContentContainer($container);
+
+        // Grep links from posts and related comments
+        $posts = Post::find()
+            ->joinWith('content')
+            ->where(['content.contentcontainer_id' => $container->contentcontainer_id])
+            ->all();
+        $postIds = [];
+        foreach ($posts as $post) {
+            if (!empty($post->content->id) && !empty($post->message)) {
+                $postIds[] = $post->id;
+                StreamLink::updateLinks($post->message, $post->content->id, Post::class, $post->id);
+            }
+        }
+        $comments = Comment::findAll(['object_model' => Post::class, 'object_id' => $postIds]);
+        foreach ($comments as $comment) {
+            if (!empty($comment->content->id) && !empty($comment->message)) {
+                StreamLink::updateLinks($comment->message, $comment->content->id, Comment::class, $comment->id);
+            }
+        }
     }
 
     /**
@@ -68,80 +88,16 @@ class Module extends ContentContainerModule
         foreach (Link::find()->contentContainer($container)->all() as $content) {
             $content->delete();
         }
-    }
 
-    /**
-     * Defines what to do if a spaces sidebar is initialzed.
-     * 
-     * @param type $event        	
-     */
-    public static function onSpaceSidebarInit($event)
-    {
-
-        $space = $event->sender->space;
-        if ($space->isModuleEnabled('linklist')) {
-            $event->sender->addWidget(widgets\Sidebar::className(), array('contentContainer' => $space), array(
-                'sortOrder' => 200,
-            ));
+        $streamLinks = StreamLink::find()
+            ->joinWith('content')
+            ->where(['content.contentcontainer_id' => $container->contentcontainer_id])
+            ->all();
+        foreach ($streamLinks as $streamLink) {
+            try {
+                $streamLink->delete();
+            } catch (StaleObjectException|\Exception $e) {
+            }
         }
     }
-
-    /**
-     * On build of a Space Navigation, check if this module is enabled.
-     * When enabled add a menu item
-     *
-     * @param type $event        	
-     */
-    public static function onSpaceMenuInit($event)
-    {
-
-        $space = $event->sender->space;
-        if ($space->isModuleEnabled('linklist') && $space->isMember()) {
-            $event->sender->addItem(array(
-                'label' => Yii::t('LinklistModule.base', 'Linklist'),
-                'group' => 'modules',
-                'url' => $space->createUrl('/linklist/linklist'),
-                'icon' => '<i class="fa fa-link"></i>',
-                'isActive' => (Yii::$app->controller->module && Yii::$app->controller->module->id == 'linklist')
-            ));
-        }
-    }
-
-    /**
-     * On build of a Profile Navigation, check if this module is enabled.
-     * When enabled add a menu item
-     *
-     * @param type $event
-     */
-    public static function onProfileMenuInit($event)
-    {
-        $user = $event->sender->user;
-
-        // Is Module enabled on this workspace?
-        if ($user->isModuleEnabled('linklist') && !Yii::$app->user->isGuest && $user->id == Yii::$app->user->id) {
-            $event->sender->addItem(array(
-                'label' => Yii::t('LinklistModule.base', 'Linklist'),
-                'url' => $user->createUrl('/linklist/linklist'),
-                'icon' => '<i class="fa fa-link"></i>',
-                'isActive' => (Yii::$app->controller->module && Yii::$app->controller->module->id == 'linklist'),
-            ));
-        }
-    }
-
-    /**
-     * Defines what to do if a spaces sidebar is initialzed.
-     *
-     * @param type $event
-     */
-    public static function onProfileSidebarInit($event)
-    {
-        $user = $event->sender->user;
-
-        if ($user->isModuleEnabled('linklist')) {
-            $event->sender->addWidget(widgets\Sidebar::className(), array('contentContainer' => $user), array(
-                'sortOrder' => 200,
-            ));
-        }
-    }
-
 }

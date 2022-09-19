@@ -3,16 +3,19 @@
 /**
  * View to list all categories and their links.
  *
- * @uses $categories an array of the categories to show.
- * @uses $links an array of arrays of the links to show, indicated by the category id.
- * @uses $accesslevel the access level of the user currently logged in.
+ * @var ContentContainerActiveRecord $contentContainer
+ * @var array $categories an array of the categories to show.
+ * @var array $links an array of arrays of the links to show, indicated by the category id.
+ * @var int $accesslevel the access level of the user currently logged in.
  *
  * @author Sebastian Stumpf
  */
 
 use humhub\modules\comment\widgets\CommentLink;
+use humhub\modules\content\components\ContentContainerActiveRecord;
 use humhub\modules\content\widgets\ContentObjectLinks;
 use humhub\modules\like\widgets\LikeLink;
+use humhub\widgets\Button;
 use yii\helpers\Html;
 
 humhub\modules\linklist\Assets::register($this);
@@ -28,6 +31,16 @@ humhub\modules\linklist\Assets::register($this);
         </div>
 
         <div class="linklist-categories">
+            <div id="linklist-category_stream"
+                 class="panel panel-default panel-linklist-category">
+                <div class="panel-heading">
+                    <div class="heading">
+                        <?= Button::info(Yii::t('LinklistModule.base', 'View posted links'))
+                            ->link($contentContainer->createUrl('/linklist/linklist/stream'))
+                            ->tooltip(Yii::t('LinklistModule.base', 'Links from the stream (posts or comments)')) ?>
+                    </div>
+                </div>
+            </div>
             <?php foreach ($categories as $category) { ?>
                 <div id="linklist-category_<?= $category->id ?>"
                      class="panel panel-default panel-linklist-category" data-id="<?= $category->id ?>">

@@ -7,11 +7,13 @@ use humhub\modules\admin\permissions\ManageSpaces;
 use humhub\modules\content\components\ContentContainerController;
 use humhub\modules\content\components\ContentContainerControllerAccess;
 use humhub\modules\linklist\models\Category;
-use humhub\modules\linklist\models\Link;
 use humhub\modules\linklist\models\ConfigureForm;
-use humhub\modules\user\models\User;
+use humhub\modules\linklist\models\Link;
+use humhub\modules\linklist\models\StreamLink;
 use humhub\modules\space\models\Space;
+use humhub\modules\user\models\User;
 use Yii;
+use yii\data\ActiveDataProvider;
 use yii\web\HttpException;
 
 /**
@@ -74,18 +76,49 @@ class LinklistController extends ContentContainerController
         }
 
         return $this->render('index', array(
-                    'contentContainer' => $this->contentContainer,
-                    'categories' => $categories,
-                    'links' => $links,
-                    'accessLevel' => $this->accessLevel,
+            'contentContainer' => $this->contentContainer,
+            'categories' => $categories,
+            'links' => $links,
+            'accessLevel' => $this->accessLevel,
         ));
+    }
+
+    /**
+     * Action that renders the list view.
+     * @see views/linklist/showLinklist.php
+     */
+    public function actionStream()
+    {
+        $searchModel = StreamLink::find()
+            ->joinWith('content')
+            ->where(['content.contentcontainer_id' => $this->contentContainer->contentcontainer_id]);
+
+        $dataProvider = new ActiveDataProvider([
+            'query' => $searchModel,
+            'pagination' => ['pageSize' => 50],
+        ]);
+        $dataProvider->setSort([
+            'attributes' => [
+                'linklist_stream.title',
+                'linklist_stream.href',
+                'content.created_at',
+                'content.created_by',
+            ]
+        ]);
+        $dataProvider->sort->defaultOrder = ['content.created_at' => SORT_DESC];
+
+        return $this->render('stream', [
+            'contentContainer' => $this->contentContainer,
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
     }
 
     /**
      * Action that renders the view to add or edit a category.<br />
      * The request has to provide the id of the category to edit in the url parameter 'category_id'.
-     * @see views/linklist/editCategory.php
      * @throws HttpException 404, if the logged in User misses the rights to access this view.
+     * @see views/linklist/editCategory.php
      */
     public function actionEditCategory()
     {
@@ -94,7 +127,7 @@ class LinklistController extends ContentContainerController
             throw new HttpException(404, Yii::t('LinklistModule.base', 'You miss the rights to edit this category!'));
         }
 
-        $category_id = (int) Yii::$app->request->get('category_id');
+        $category_id = (int)Yii::$app->request->get('category_id');
         $category = Category::find()->contentContainer($this->contentContainer)->where(array('linklist_category.id' => $category_id))->one();
 
         if ($category == null) {
@@ -106,13 +139,13 @@ class LinklistController extends ContentContainerController
             $this->redirect($this->contentContainer->createUrl('/linklist/linklist/index'));
         }
         return $this->render('editCategory', array(
-                    'category' => $category,
+            'category' => $category,
         ));
     }
 
     /**
      * Action that deletes a given category.<br />
-     * The request has to provide the id of the category to delete in the url parameter 'category_id'. 
+     * The request has to provide the id of the category to delete in the url parameter 'category_id'.
      * @throws HttpException 404, if the logged in User misses the rights to access this view.
      */
     public function actionDeleteCategory()
@@ -121,7 +154,7 @@ class LinklistController extends ContentContainerController
             throw new HttpException(404, Yii::t('LinklistModule.base', 'You miss the rights to delete this category!'));
         }
 
-        $category_id = (int) Yii::$app->request->get('category_id');
+        $category_id = (int)Yii::$app->request->get('category_id');
         $category = Category::find()->contentContainer($this->contentContainer)->where(array('linklist_category.id' => $category_id))->one();
 
         if ($category == null) {
@@ -137,14 +170,14 @@ class LinklistController extends ContentContainerController
      * Action that renders the view to add or edit a category.<br />
      * The request has to provide the id of the category the link should be created in, in the url parameter 'category_id'.<br />
      * If an existing ling should be edited, the link's id has to be given in 'link_id'.<br />
-     * @see views/linklist/editCategory.php
      * @throws HttpException 404, if the logged in User misses the rights to access this view.
+     * @see views/linklist/editCategory.php
      */
     public function actionEditLink()
     {
 
-        $link_id = (int) Yii::$app->request->get('link_id');
-        $category_id = (int) Yii::$app->request->get('category_id');
+        $link_id = (int)Yii::$app->request->get('link_id');
+        $category_id = (int)Yii::$app->request->get('category_id');
 
         $link = Link::find()->where(array('linklist_link.id' => $link_id))->contentContainer($this->contentContainer)->one();
 
@@ -169,7 +202,7 @@ class LinklistController extends ContentContainerController
         }
 
         return $this->render('editLink', array(
-                    'link' => $link,
+            'link' => $link,
         ));
     }
 
@@ -180,13 +213,12 @@ class LinklistController extends ContentContainerController
      */
     public function actionDeleteLink()
     {
-        $link_id = (int) Yii::$app->request->get('link_id');
+        $link_id = (int)Yii::$app->request->get('link_id');
         $link = Link::find()->where(array('linklist_link.id' => $link_id))->contentContainer($this->contentContainer)->one();
 
         if ($link == null) {
             throw new HttpException(404, Yii::t('LinklistModule.base', 'Requested link could not be found.'));
-        }
-        // access level 1 may delete own links, 2 all links
+        } // access level 1 may delete own links, 2 all links
         else if ($this->accessLevel == 0 || $this->accessLevel == 1 && $link->content->created_by != Yii::$app->user->id) {
             throw new HttpException(404, Yii::t('LinklistModule.base', 'You miss the rights to delete this link!'));
         }
